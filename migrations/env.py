@@ -1,118 +1,48 @@
-import os
 from logging.config import fileConfig
-from sqlalchemy import create_engine, pool
+from sqlalchemy import pool
+from sqlalchemy.engine import Connection
 from alembic import context
-from dotenv import load_dotenv
+import models  # ✅ Ensure models are imported so Alembic detects them
+from database import Base, DATABASE_URL  # ✅ Import Base from database.py
+from sqlalchemy.ext.asyncio import create_async_engine
 
-# Load environment variables from .env file
-load_dotenv()
-
-# Import your models here (for automatic migrations)
-from models import Base  # Ensure this import exists
-
-# Configure Alembic logging
+# ✅ Configure Alembic Logging
 config = context.config
-fileConfig(config.config_file_name)
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
 
-# Get the database URL from environment variables
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:1234@localhost/interviewbot")
+# ✅ Set up the correct database URL for async PostgreSQL
+config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
-# Use `psycopg2` for Alembic migrations (convert asyncpg -> psycopg2)
-SYNC_DATABASE_URL = DATABASE_URL.replace("asyncpg", "psycopg2")
-
-# Set the SQLAlchemy URL dynamically
-config.set_main_option("sqlalchemy.url", SYNC_DATABASE_URL)
-
-# Metadata for database migrations
-target_metadata = Base.metadata  # Ensure models are imported correctly
-
-
-def run_migrations_offline():
-    """Run migrations in 'offline' mode."""
-    context.configure(
-        url=SYNC_DATABASE_URL,
-        target_metadata=target_metadata,
-        literal_binds=True,
-        compare_type=True,
-    )
-    with context.begin_transaction():
-        context.run_migrations()
-
-
-def run_migrations_online():
-    """Run migrations in 'online' mode."""
-    connectable = create_engine(
-        SYNC_DATABASE_URL,
-        poolclass=pool.NullPool,
-    )
-
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            compare_type=True,
-        )
-
-        with context.begin_transaction():
-            context.run_migrations()
-
-
-if context.is_offline_mode():
-    run_migrations_offline()
-else:
-    run_migrations_online()
-import os
-from logging.config import fileConfig
-from sqlalchemy import create_engine, pool
-from alembic import context
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-
-# Convert asyncpg to psycopg2 for Alembic migrations
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:1234@localhost/interviewbot")
-SYNC_DATABASE_URL = DATABASE_URL.replace("asyncpg", "psycopg2")
-
-# Set database URL for Alembic
-config.set_main_option("sqlalchemy.url", SYNC_DATABASE_URL)
-
-# Import models
-from models import Base  # Ensure this import exists
-
-# Metadata for migrations
+# ✅ Set target metadata for Alembic migrations
 target_metadata = Base.metadata
 
+# ✅ Create async engine for database migrations
 def run_migrations_offline():
     """Run migrations in 'offline' mode."""
     context.configure(
-        url=SYNC_DATABASE_URL,
+        url=DATABASE_URL,
         target_metadata=target_metadata,
         literal_binds=True,
-        compare_type=True,
+        dialect_opts={"paramstyle": "named"},
     )
     with context.begin_transaction():
         context.run_migrations()
 
 def run_migrations_online():
-    """Run migrations in 'online' mode."""
-    connectable = create_engine(
-        SYNC_DATABASE_URL,
-        poolclass=pool.NullPool,
-    )
+    """Run migrations in 'online' mode using async engine."""
+    connectable = create_async_engine(DATABASE_URL, future=True, echo=True)
 
-    with connectable.connect() as connection:
+    with connectable.connect() as connection:  # ✅ Use sync context manager
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            compare_type=True,
         )
-
         with context.begin_transaction():
             context.run_migrations()
 
+# ✅ Determine which mode to run: offline or online
 if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
-
