@@ -1,47 +1,31 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, declarative_base
-import asyncio
 import os
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.orm import declarative_base
 from dotenv import load_dotenv
 
 # ✅ Load environment variables (for local testing)
 load_dotenv()
 
-# ✅ Get DATABASE_URL from Railway
+# ✅ Get DATABASE_URL from environment variables
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    raise ValueError("🚨 DATABASE_URL is not set! Check your Railway environment variables.")
+    raise ValueError("🚨 DATABASE_URL is not set! Check your environment variables.")
 
 # ✅ Create async SQLAlchemy engine
-engine = create_async_engine(DATABASE_URL, future=True, echo=True)
+engine = create_async_engine(DATABASE_URL, echo=True, future=True)
 
-# ✅ Define Base for models
+# ✅ Define Base for ORM models
 Base = declarative_base()
 
-# ✅ Create a session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=AsyncSession)
-
-# ✅ Database Connection Retry (Fix TimeoutError)
-async def test_connection():
-    """Check if the database connection is successful."""
-    for attempt in range(5):  # Retry 5 times
-        try:
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-            print("✅ Database connection successful!")
-            return
-        except Exception as e:
-            print(f"⚠️ Database connection failed (Attempt {attempt + 1}/5): {e}")
-            await asyncio.sleep(5)  # Wait 5 seconds before retrying
-
-    print("❌ Database connection failed after multiple attempts.")
-    raise Exception("Database connection failed after multiple retries.")
-
-# ✅ Ensure connection before app starts
-asyncio.run(test_connection())
+# ✅ Create async session factory
+async_session_maker = async_sessionmaker(
+    bind=engine,
+    expire_on_commit=False,
+    class_=AsyncSession
+)
 
 # ✅ Dependency to get the database session
 async def get_db():
-    async with SessionLocal() as session:
+    async with async_session_maker() as session:
         yield session
