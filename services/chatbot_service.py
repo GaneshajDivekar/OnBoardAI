@@ -50,7 +50,4 @@ def get_mistral_response(message: str):
 
 
 def get_response(message: str):
-    response = get_deepseek_response(message)
-    if response:
-        return response
     return get_mistral_response(message)
