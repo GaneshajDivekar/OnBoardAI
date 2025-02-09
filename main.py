@@ -1,13 +1,11 @@
 from fastapi import FastAPI
+from database import test_connection
+import asyncio
+from routes import documents, training, chatbot
 from fastapi.middleware.cors import CORSMiddleware
-from database import create_tables
-import models
-from routes import onboarding, chatbot
 
-# ✅ Initialize FastAPI app
 app = FastAPI()
 
-# ✅ CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,14 +14,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ FastAPI Startup Event - Auto Create Tables
+# ✅ Use lifespan event instead of asyncio.run()
 @app.on_event("startup")
-async def startup_event():
-    """Ensure database tables are created on startup."""
-    await create_tables()  # ✅ Auto-create tables in PostgreSQL
+async def startup():
+    await test_connection()  # ✅ This will run on FastAPI's event loop
 
-# ✅ Include API Routes
-app.include_router(onboarding.router, prefix="/api")
+app.include_router(documents.router, prefix="/api")
+app.include_router(training.router, prefix="/api")
 app.include_router(chatbot.router, prefix="/api")
 
 @app.get("/")

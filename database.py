@@ -7,13 +7,13 @@ from dotenv import load_dotenv
 # ✅ Load environment variables
 load_dotenv()
 
-# ✅ Get DATABASE_URL from Railway or local `.env`
+# ✅ Get DATABASE_URL from environment variables
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
     raise ValueError("🚨 DATABASE_URL is not set! Check your environment variables.")
 
-# ✅ Create Async SQLAlchemy engine
+# ✅ Create async SQLAlchemy engine
 engine = create_async_engine(DATABASE_URL, echo=True, future=True)
 
 # ✅ Define Base for ORM models
@@ -26,13 +26,21 @@ async_session_maker = async_sessionmaker(
     class_=AsyncSession
 )
 
-# ✅ Async function to create tables
-async def create_tables():
-    """Creates tables asynchronously at startup."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
 # ✅ Dependency to get the database session
 async def get_db():
     async with async_session_maker() as session:
         yield session
+
+# ✅ Async function to test database connection
+async def test_connection():
+    """Check if the database connection is successful."""
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)  # ✅ Create Tables Async
+        print("✅ Database connection successful!")
+    except Exception as e:
+        print(f"⚠️ Database connection failed: {e}")
+
+# ❌ Remove asyncio.run(test_connection()) from the global scope
+
+# ✅ Instead, add a startup event in `main.py`
