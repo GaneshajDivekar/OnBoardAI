@@ -1,21 +1,27 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select  # ✅ Import async select
 
 from database import get_db
-from models import OnboardingTask, User, Document
+from models import User, Document, OnboardingTask
 
 router = APIRouter()
 
 
 # ✅ Get User Onboarding Status
 @router.get("/onboarding/{user_id}")
-def get_onboarding_status(user_id: int, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
+async def get_onboarding_status(user_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalars().first()
+
     if not user:
         return {"error": "User not found"}
 
-    tasks = db.query(OnboardingTask).filter(OnboardingTask.user_id == user_id).all()
-    documents = db.query(Document).filter(Document.user_id == user_id).all()
+    result_tasks = await db.execute(select(OnboardingTask).filter(OnboardingTask.user_id == user_id))
+    tasks = result_tasks.scalars().all()
+
+    result_docs = await db.execute(select(Document).filter(Document.user_id == user_id))
+    documents = result_docs.scalars().all()
 
     return {
         "name": user.name,
@@ -28,23 +34,27 @@ def get_onboarding_status(user_id: int, db: Session = Depends(get_db)):
 
 # ✅ Update Task Status
 @router.put("/onboarding/task/{task_id}")
-def update_task_status(task_id: int, status: str, db: Session = Depends(get_db)):
-    task = db.query(OnboardingTask).filter(OnboardingTask.id == task_id).first()
+async def update_task_status(task_id: int, status: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(OnboardingTask).filter(OnboardingTask.id == task_id))
+    task = result.scalars().first()
+
     if not task:
         return {"error": "Task not found"}
 
     task.status = status
-    db.commit()
+    await db.commit()
     return {"message": "Task updated successfully"}
 
 
 # ✅ Upload Document Status
 @router.put("/onboarding/document/{doc_id}")
-def update_document_status(doc_id: int, status: str, db: Session = Depends(get_db)):
-    document = db.query(Document).filter(Document.id == doc_id).first()
+async def update_document_status(doc_id: int, status: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Document).filter(Document.id == doc_id))
+    document = result.scalars().first()
+
     if not document:
         return {"error": "Document not found"}
 
     document.status = status
-    db.commit()
+    await db.commit()
     return {"message": "Document updated successfully"}
